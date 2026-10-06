@@ -73,7 +73,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .add-tile:hover{background:#fff;border-color:var(--brown)}
 .add-tile svg.i{width:24px;height:24px}
 
-/* 조정 칸 (모든 사진 / 한 장 따로 — 같은 모양) */
+/* 조정 칸 */
 .ctl{padding:12px 0;border-top:1px solid var(--line)}
 .ctl:first-child{border-top:0;padding-top:0}
 .ctl:last-child{padding-bottom:0}
@@ -85,6 +85,7 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .tog{height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;font-weight:700;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;color:var(--muted);transition:background .15s,color .15s}
 .tog:hover{color:var(--ink);border-color:var(--brown)}
 .tog[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+.tog.wide{width:100%;height:48px;font-size:15px}
 .rots{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .seg{display:grid;grid-template-columns:repeat(var(--n,2),minmax(0,1fr));gap:4px;background:var(--sand);padding:4px;border-radius:12px}
 .seg button{height:36px;border:0;background:none;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;padding:0 4px;white-space:nowrap}
@@ -107,6 +108,15 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
 .sl-x{width:26px;height:26px;padding:0;border:0;border-radius:7px;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
 .sl-x svg.i{width:14px;height:14px}
 .sl-x:hover{background:var(--sand);color:var(--ink)}
+/* 기울기 눈금자: 끌면 눈금이 손을 따라오고 10px = 1° */
+.dial{position:relative;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:ew-resize;touch-action:none;overflow:hidden;user-select:none;-webkit-user-select:none}
+.dial:focus{outline:none}
+.dial:focus-visible{outline:2px solid var(--brown);outline-offset:1px}
+.dial canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dial::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#fff,rgba(255,255,255,0) 22%,rgba(255,255,255,0) 78%,#fff)}
+.dial::after{content:'';position:absolute;z-index:2;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--green);pointer-events:none}
+.dial.on{border-color:var(--green)}
+.crop-swap{width:100%;margin-top:8px}
 
 /* 저장 — PC에서는 오른쪽 칸 맨 아래에 항상 보이게 고정 */
 .frow{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px}
@@ -125,20 +135,32 @@ svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-widt
   .side .save{position:sticky;bottom:0;z-index:1;box-shadow:0 -10px 18px -14px rgba(60,40,20,.35)}
 }
 
-/* 한 장 따로 조정 창 */
+/* 한 장씩 조정 창 */
 dialog.ed{padding:0;border:0;border-radius:18px;width:min(1280px,calc(100vw - 32px));height:min(880px,calc(100vh - 32px));max-width:none;max-height:none;background:var(--paper);color:var(--ink);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 dialog.ed::backdrop{background:rgba(30,26,22,.62)}
 .ed-in{display:grid;grid-template-columns:minmax(0,1fr) 340px;height:100%}
-.ed-view{position:relative;background:#2B2622;min-height:0}
-.ed-stage{position:absolute;inset:20px 68px 66px}
+.ed-view{position:relative;background:#2B2622;min-height:0;overflow:hidden}
+.ed-stage{position:absolute;inset:24px 68px 70px}
 .ed-stage canvas{display:block;width:100%;height:100%;object-fit:contain}
 .gridov{position:absolute;pointer-events:none;outline:1px solid rgba(255,255,255,.55);background-image:linear-gradient(rgba(255,255,255,.55) 1px,rgba(0,0,0,.2) 1px,rgba(0,0,0,.2) 2px,transparent 2px),linear-gradient(90deg,rgba(255,255,255,.55) 1px,rgba(0,0,0,.2) 1px,rgba(0,0,0,.2) 2px,transparent 2px);background-size:56px 56px;background-position:center}
-.nav{position:absolute;top:calc(50% - 22px);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+/* 자르기 네모: 바깥은 어둡게, 가운데 끌면 옮기기, 모서리·변 끌면 크기 */
+.cropov{position:absolute;pointer-events:none}
+.cbox{position:absolute;pointer-events:auto;cursor:move;touch-action:none;outline:1.5px solid rgba(255,255,255,.95);box-shadow:0 0 0 9999px rgba(20,16,12,.6);
+  background-image:linear-gradient(90deg,transparent calc(33.33% - .5px),rgba(255,255,255,.4) calc(33.33% - .5px),rgba(255,255,255,.4) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.67% - .5px),rgba(255,255,255,.4) calc(66.67% - .5px),rgba(255,255,255,.4) calc(66.67% + .5px),transparent calc(66.67% + .5px)),
+  linear-gradient(transparent calc(33.33% - .5px),rgba(255,255,255,.4) calc(33.33% - .5px),rgba(255,255,255,.4) calc(33.33% + .5px),transparent calc(33.33% + .5px),transparent calc(66.67% - .5px),rgba(255,255,255,.4) calc(66.67% - .5px),rgba(255,255,255,.4) calc(66.67% + .5px),transparent calc(66.67% + .5px))}
+.cbox b{position:absolute;width:14px;height:14px;background:#fff;border:1px solid rgba(0,0,0,.35);border-radius:3px;transform:translate(-50%,-50%)}
+.cbox b::after{content:'';position:absolute;inset:-9px}
+.cbox b[data-h=nw]{left:0;top:0;cursor:nwse-resize}.cbox b[data-h=se]{left:100%;top:100%;cursor:nwse-resize}
+.cbox b[data-h=ne]{left:100%;top:0;cursor:nesw-resize}.cbox b[data-h=sw]{left:0;top:100%;cursor:nesw-resize}
+.cbox b[data-h=n]{left:50%;top:0;width:24px;height:8px;cursor:ns-resize}.cbox b[data-h=s]{left:50%;top:100%;width:24px;height:8px;cursor:ns-resize}
+.cbox b[data-h=e]{left:100%;top:50%;width:8px;height:24px;cursor:ew-resize}.cbox b[data-h=w]{left:0;top:50%;width:8px;height:24px;cursor:ew-resize}
+.cbox.lock b[data-h=n],.cbox.lock b[data-h=s],.cbox.lock b[data-h=e],.cbox.lock b[data-h=w]{display:none}
+.nav{position:absolute;top:calc(50% - 22px);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
 .nav svg.i{width:24px;height:24px}
 .nav:hover{background:rgba(255,255,255,.26)}
 .nav:disabled{opacity:.2;cursor:default;background:rgba(255,255,255,.14)}
 .nav.prev{left:12px}.nav.next{right:12px}
-.ed-foot{position:absolute;left:0;right:0;bottom:16px;display:flex;justify-content:center;align-items:center;gap:10px;color:#E8E0D6;font-size:13px;font-variant-numeric:tabular-nums}
+.ed-foot{position:absolute;left:0;right:0;bottom:16px;z-index:2;display:flex;justify-content:center;align-items:center;gap:10px;color:#E8E0D6;font-size:13px;font-variant-numeric:tabular-nums}
 .ed-foot #edCount{margin-right:4px}
 .hold{height:36px;padding:0 14px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;-webkit-user-select:none;touch-action:none}
 .hold:hover{background:rgba(255,255,255,.16)}
@@ -147,7 +169,7 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
 .ed-head{display:flex;align-items:center;gap:8px;padding:12px 10px 12px 18px;border-bottom:1px solid var(--line)}
 .ed-head b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
 .ed-body{flex:1;overflow:auto;padding:14px 18px 16px}
-.ed-mode{font-size:13px;padding:9px 12px;border-radius:10px;background:var(--sand);color:var(--muted);margin:0 0 14px;line-height:1.5;min-height:57.5px;display:flex;align-items:center}
+.ed-mode{font-size:13px;padding:8px 12px;border-radius:10px;background:var(--sand);color:var(--muted);margin:0 0 12px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ed-mode.own{background:#F3E6D6;color:var(--brown-deep);font-weight:700}
 .ed-acts{display:grid;gap:8px;padding:12px 18px 16px;border-top:1px solid var(--line)}
 .ed-acts .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -166,7 +188,7 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
   dialog.ed{width:100vw;height:100vh;height:100dvh;border-radius:0}
   .ed-in{grid-template-columns:minmax(0,1fr);grid-template-rows:44vh minmax(0,1fr)}
   .ed-side{border-left:0}
-  .ed-stage{inset:12px 54px 58px}
+  .ed-stage{inset:14px 54px 60px}
   .nav{width:38px;height:38px;top:calc(50% - 40px)}
   .nav.prev{left:8px}.nav.next{right:8px}
   .hold{padding:0 11px}
@@ -185,11 +207,12 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
   <div class="main-col">
   <header class="top">
     <h1>사진 좌우반전 · 보정</h1>
-    <p>사진 여러 장을 한 번에 좌우반전하고, 밝기·선명도·색감·각도를 맞춰서 저장해요.</p>
+    <p>사진 여러 장을 한 번에 좌우반전하고, 한 장씩 넘기면서 밝기·각도·자르기를 맞춘 뒤 한 번에 저장해요.</p>
   </header>
   <main class="card">
     <div class="ph-head">
       <h2 id="count">사진</h2>
+      <button type="button" class="btn sm" id="editBtn" data-ico="right">한 장씩 조정하기</button>
       <button type="button" class="btn sm" id="addBtn" data-ico="plus">사진 추가</button>
       <button type="button" class="btn sm" id="clearBtn" data-ico="trash">모두 빼기</button>
     </div>
@@ -206,8 +229,8 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
 
   <aside class="side">
     <section class="card">
-      <h2>모든 사진 설정 <button type="button" class="mini" id="gReset">처음으로</button></h2>
-      <div id="gctl"></div>
+      <h2>모든 사진</h2>
+      <button type="button" class="tog wide" id="gFlip" data-ico="flipH">좌우반전</button>
       <p class="hint" id="gNote"></p>
     </section>
 
@@ -239,15 +262,17 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
         <button type="button" class="btn" id="eachBtn" title="사진을 한 장씩 따로따로 저장">한 장씩 저장</button>
       </div>
       <div class="prog" id="prog" hidden><div class="bar"><i id="progBar"></i></div><p id="progTxt"></p></div>
-      <p class="hint">촬영 날짜·위치 같은 사진 정보는 빠진 채로 저장돼요.</p>
+      <p class="hint">조정한 사진은 조정한 대로 저장돼요. 촬영 날짜·위치 같은 사진 정보는 빠져요.</p>
     </section>
   </aside>
 </div>
 
-<dialog class="ed" id="ed" aria-label="사진 한 장 따로 조정">
+<dialog class="ed" id="ed" aria-label="사진 한 장씩 조정">
   <div class="ed-in">
     <div class="ed-view">
-      <div class="ed-stage" id="edStage"><canvas id="edCv"></canvas><div class="gridov" id="edGrid" hidden></div></div>
+      <div class="ed-stage" id="edStage"><canvas id="edCv"></canvas><div class="gridov" id="edGrid" hidden></div>
+        <div class="cropov" id="edCrop" hidden><div class="cbox" id="edCbox"><b data-h="nw"></b><b data-h="n"></b><b data-h="ne"></b><b data-h="e"></b><b data-h="se"></b><b data-h="s"></b><b data-h="sw"></b><b data-h="w"></b></div></div>
+      </div>
       <button type="button" class="nav prev" id="edPrev" aria-label="이전 사진" data-ico="left"></button>
       <button type="button" class="nav next" id="edNext" aria-label="다음 사진" data-ico="right"></button>
       <div class="ed-foot">
@@ -264,10 +289,13 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
       </div>
       <div class="ed-acts">
         <div class="two">
-          <button type="button" class="btn sm" id="edFollow">전체 설정 따르기</button>
-          <button type="button" class="btn sm" id="edAll">모든 사진에 적용</button>
+          <button type="button" class="btn sm" id="edReset">이 사진 처음으로</button>
+          <button type="button" class="btn sm" id="edToneAll" title="밝기·대비·채도·색온도·선명도를 모든 사진에 똑같이 (각도·자르기는 그대로)">보정 모든 사진에</button>
         </div>
-        <button type="button" class="btn primary" id="edSave" data-ico="down">이 사진 저장</button>
+        <div class="two">
+          <button type="button" class="btn" id="edSave" data-ico="down">이 사진 저장</button>
+          <button type="button" class="btn primary" id="edSaveAll" data-ico="down">모두 저장 (ZIP)</button>
+        </div>
       </div>
     </div>
   </div>
@@ -303,7 +331,7 @@ const ICON = {
 const ico = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 document.querySelectorAll('[data-ico]').forEach(el => el.insertAdjacentHTML('afterbegin', ico(el.dataset.ico)));
 
-/* ── 설정 (모든 사진 설정 + 저장 형식은 브라우저에 기억) ── */
+/* ── 설정: 모든 사진 = 좌우반전만, 나머지는 사진마다 따로 ── */
 const KEY = 'photo-flip-v1';
 const SLIDERS = [
   {k: 'bright', l: '밝기', min: -50, max: 50},
@@ -312,29 +340,47 @@ const SLIDERS = [
   {k: 'warm', l: '색온도', min: -50, max: 50, track: 'linear-gradient(90deg,#6F9AD0,#E7E1D6 50%,#E2A64A)'},
   {k: 'sharp', l: '선명도', min: 0, max: 100}
 ];
-const ANGLE = {k: 'angle', l: '기울기', min: -45, max: 45, step: 0.5, nstep: 0.1};
 const TONE0 = {bright: 0, contrast: 0, sat: 0, warm: 0, sharp: 0};
-const DEF = {flipH: true, flipV: false, ...TONE0, angle: 0, rot: 0, fit: 'crop'};
+const DEF = {flipH: true, flipV: false, ...TONE0, angle: 0, rot: 0, fit: 'crop', crop: null};
 const NEUTRAL = {...DEF, flipH: false};
+const RATIOS = [{l: '1:1', r: 1}, {l: '4:3', r: 4 / 3}, {l: '16:9', r: 16 / 9}];
+const PXD = 10;   // 기울기 눈금자: 10px 끌면 1°
+function cleanCrop(c) {   // 자르기 = 반전·돌리기 뒤 사진 안에서의 위치 (0~1), ar = 가로/세로 비율 (0이면 자유)
+  if (!c || typeof c !== 'object') return null;
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  const w = clamp(+c.w || 1, 0.02, 1), h = clamp(+c.h || 1, 0.02, 1);
+  return {ar: +c.ar > 0 ? +c.ar : 0, x: r4(clamp(+c.x || 0, 0, 1 - w)), y: r4(clamp(+c.y || 0, 0, 1 - h)), w: r4(w), h: r4(h)};
+}
 function clean(s) {
   s.flipH = !!s.flipH; s.flipV = !!s.flipV;
   for (const o of SLIDERS) s[o.k] = clamp(Math.round(+s[o.k] || 0), o.min, o.max);
   s.angle = clamp(Math.round((+s.angle || 0) * 10) / 10, -45, 45);
   s.rot = ((Math.round(+s.rot || 0) % 4) + 4) % 4;
   s.fit = s.fit === 'white' ? 'white' : 'crop';
+  s.crop = cleanCrop(s.crop);
   return s;
 }
-const same = (a, b) => Object.keys(DEF).every(k => a[k] === b[k]);
+function withFlip(s, h, v) {   // 반전을 바꾸면 자르기 위치도 같이 뒤집음
+  let c = s.crop;
+  if (c && h !== s.flipH) c = {...c, x: 1 - c.x - c.w};
+  if (c && v !== s.flipV) c = {...c, y: 1 - c.y - c.h};
+  return {...s, flipH: h, flipV: v, crop: c};
+}
+function rotCrop(c, dir) {   // 90° 돌리면 자르기 위치도 같이 돌림
+  if (!c) return c;
+  const ar = c.ar ? 1 / c.ar : 0;
+  return dir > 0 ? {ar, x: 1 - c.y - c.h, y: c.x, w: c.h, h: c.w} : {ar, x: c.y, y: 1 - c.x - c.w, w: c.h, h: c.w};
+}
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
-const G = clean({...DEF, ...(saved.g || {})});
+const G = {flipH: !(saved.g && saved.g.flipH === false)};
 let fmt = ['same', 'jpg', 'png'].includes(saved.fmt) ? saved.fmt : 'same';
 let size = [0, 2000, 1080].includes(saved.size) ? saved.size : 0;
 let suffix = typeof saved.suffix === 'string' ? saved.suffix : '_반전';
 function persist() { try { localStorage.setItem(KEY, JSON.stringify({g: G, fmt, size, suffix})); } catch (e) {} }
 const EXT = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp'};
 
-/* ── 사진 처리: 보정(밝기·대비·채도·색온도·선명도) → 반전·돌리기 ──
+/* ── 사진 처리: 보정(밝기·대비·채도·색온도·선명도) → 반전·돌리기 → 자르기 ──
    화면 미리보기와 저장용 워커가 같은 함수를 씀 → 이 함수들 안에서는 바깥 변수를 쓰지 말 것 */
 function mkCv(w, h) {
   if (typeof document !== 'undefined') { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -350,6 +396,14 @@ function geom(sw, sh, s) {
     else k = Math.max(bw / W0, bh / H0) * 1.002;          // 크기 그대로 → 빈 모서리 안 생기게 살짝 확대
   }
   return {ow: Math.max(1, Math.round(ow)), oh: Math.max(1, Math.round(oh)), k, t};
+}
+function cropBox(W, H, c) {   // 자르기 위치(0~1) → 픽셀. 비율이 정해져 있으면 가운데를 기준으로 비율을 지킴
+  if (!c) return {x: 0, y: 0, w: W, h: H};
+  let w = c.w * W, h = c.h * H;
+  const cx = (c.x + c.w / 2) * W, cy = (c.y + c.h / 2) * H;
+  if (c.ar) { h = w / c.ar; if (h > H) { h = H; w = h * c.ar; } if (w > W) { w = W; h = w / c.ar; } }
+  w = Math.max(1, Math.min(W, Math.round(w))); h = Math.max(1, Math.min(H, Math.round(h)));
+  return {x: Math.round(Math.min(W - w, Math.max(0, cx - w / 2))), y: Math.round(Math.min(H - h, Math.max(0, cy - h / 2))), w, h};
 }
 function blurData(src, w, h, sigma) {   // 가장자리를 늘려 붙인 뒤 흐리게 → 테두리가 어두워지지 않음
   const p = Math.ceil(sigma * 3) + 1, pw = w + 2 * p, ph = h + 2 * p;
@@ -414,13 +468,13 @@ function develop(src, w, h, s, work) {
   return cv;
 }
 function paintGeom(cv, src, sw, sh, s, bg) {
-  const g = geom(sw, sh, s);
-  if (cv.width !== g.ow || cv.height !== g.oh) { cv.width = g.ow; cv.height = g.oh; }
+  const g = geom(sw, sh, s), b = cropBox(g.ow, g.oh, s.crop);
+  if (cv.width !== b.w || cv.height !== b.h) { cv.width = b.w; cv.height = b.h; }
   const ctx = cv.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, g.ow, g.oh);
-  if (bg || (s.angle && s.fit === 'white')) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, g.ow, g.oh); }
-  ctx.translate(g.ow / 2, g.oh / 2);
+  ctx.clearRect(0, 0, b.w, b.h);
+  if (bg || (s.angle && s.fit === 'white')) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, b.w, b.h); }
+  ctx.translate(g.ow / 2 - b.x, g.oh / 2 - b.y);
   ctx.rotate(s.rot * Math.PI / 2 + g.t);
   ctx.scale(s.flipH ? -g.k : g.k, s.flipV ? -g.k : g.k);
   ctx.imageSmoothingEnabled = true;
@@ -455,10 +509,33 @@ function shrink(img, max) {
 }
 const THUMB = 400, MID = 1600;   // 목록용 · 크게 볼 때용 미리보기 크기 (저장은 항상 원본에서)
 
-/* ── 조정 칸 만들기 (모든 사진 설정 · 한 장 따로 조정 둘 다 이걸로) ── */
+/* 기울기 눈금자 그리기 — 오른쪽으로 끌면 사진이 오른쪽(시계 방향)으로 돌아감 */
+function drawDial(cv, a) {
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const x = cv.getContext('2d');
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.clearRect(0, 0, W, H);
+  x.font = '600 9px sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'top';
+  const c = W / 2, span = c / PXD + 1;
+  for (let d = Math.ceil(a - span); d <= Math.floor(a + span); d++) {
+    if (d < -45 || d > 45) continue;
+    const px = Math.round(c - (d - a) * PXD) + 0.5, major = d % 5 === 0;
+    x.strokeStyle = d === 0 ? '#2E5B45' : major ? '#9A8E80' : '#D6CCBF';
+    x.lineWidth = d === 0 ? 2 : 1;
+    x.beginPath(); x.moveTo(px, H); x.lineTo(px, H - (d === 0 ? 13 : major ? 10 : 5)); x.stroke();
+    if (major) { x.fillStyle = d === 0 ? '#2E5B45' : '#9A8E80'; x.fillText(String(Math.abs(d)), px, 3); }
+  }
+}
+
+/* ── 한 장 조정 칸 ── */
 const slHTML = o => `<div class="sl" data-k="${o.k}"><span class="sl-l">${o.l}</span>`
-  + `<input type="range" min="${o.min}" max="${o.max}" step="${o.step || 1}" aria-label="${o.l}">`
-  + `<input type="number" class="sl-n" min="${o.min}" max="${o.max}" step="${o.nstep || o.step || 1}" aria-label="${o.l} 숫자">`
+  + `<input type="range" min="${o.min}" max="${o.max}" step="1" aria-label="${o.l}">`
+  + `<input type="number" class="sl-n" min="${o.min}" max="${o.max}" step="1" aria-label="${o.l} 숫자">`
   + `<button type="button" class="sl-x" title="0으로" aria-label="${o.l} 0으로">${ico('rotL')}</button></div>`;
 function makeControls(root, api) {
   root.innerHTML = `
@@ -472,11 +549,14 @@ function makeControls(root, api) {
   <div class="ctl">
     <div class="ctl-head"><span class="ctl-label">보정</span><button type="button" class="mini tone-0">보정 초기화</button></div>
     ${SLIDERS.map(slHTML).join('')}
-    <p class="hint">조명 때문에 누렇게 나온 사진은 색온도를 왼쪽으로 옮겨 보세요.</p>
+    <p class="hint">누렇게 나온 사진은 색온도를 왼쪽으로 옮겨 보세요.</p>
   </div>
   <div class="ctl">
     <span class="ctl-label">각도</span>
-    ${slHTML(ANGLE)}
+    <div class="sl" data-k="angle"><span class="sl-l">기울기</span>
+      <div class="dial" tabindex="0" role="slider" aria-label="기울기" aria-valuemin="-45" aria-valuemax="45" title="좌우로 끌어서 조절 (10px = 1°) · 위·아래 키로 0.1°씩 · 두 번 누르면 0"><canvas></canvas></div>
+      <input type="number" class="sl-n an-n" min="-45" max="45" step="0.1" aria-label="기울기 숫자">
+      <button type="button" class="sl-x an-0" title="0으로" aria-label="기울기 0으로">${ico('rotL')}</button></div>
     <div class="rots">
       <button type="button" class="btn sm rot-l">${ico('rotL')}왼쪽 90°</button>
       <button type="button" class="btn sm rot-r">${ico('rotR')}오른쪽 90°</button>
@@ -487,12 +567,22 @@ function makeControls(root, api) {
       <div class="seg"><button type="button" data-fit="crop">확대해서 채우기</button><button type="button" data-fit="white">흰색으로 채우기</button></div>
       <p class="hint fit-txt"></p>
     </div>
+  </div>
+  <div class="ctl">
+    <span class="ctl-label">자르기</span>
+    <div class="seg" style="--n:5">
+      <button type="button" data-crop="none">안 자름</button><button type="button" data-crop="free">자유</button>
+      ${RATIOS.map((o, i) => `<button type="button" data-crop="${i}">${o.l}</button>`).join('')}
+    </div>
+    <button type="button" class="btn sm crop-swap">가로 ↔ 세로 바꾸기</button>
+    <p class="hint crop-txt">네모 안을 끌면 이동, 모서리를 끌면 크기 조절</p>
   </div>`;
   const q = s => root.querySelector(s);
   const fh = q('[data-k=flipH]'), fv = q('[data-k=flipV]'), tone0 = q('.tone-0');
   const rotTxt = q('.rot-txt'), fitBox = q('.fit-box'), fitTxt = q('.fit-txt'), fits = root.querySelectorAll('[data-fit]');
-  const rows = [...root.querySelectorAll('.sl')].map(el => {
-    const k = el.dataset.k, o = k === 'angle' ? ANGLE : SLIDERS.find(x => x.k === k);
+  const cropBtns = root.querySelectorAll('[data-crop]'), swap = q('.crop-swap'), cropTxt = q('.crop-txt');
+  const rows = SLIDERS.map(o => {
+    const el = q(`.sl[data-k=${o.k}]`), k = o.k;
     const r = el.querySelector('input[type=range]'), n = el.querySelector('.sl-n'), x = el.querySelector('.sl-x');
     r.addEventListener('input', () => api.set({[k]: +r.value}));
     r.addEventListener('dblclick', () => api.set({[k]: 0}));
@@ -501,12 +591,65 @@ function makeControls(root, api) {
     x.addEventListener('click', () => api.set({[k]: 0}));
     return {k, o, r, n, x};
   });
+  // 기울기 눈금자
+  const dial = q('.dial'), dcv = dial.querySelector('canvas'), anN = q('.an-n'), an0 = q('.an-0');
+  const setAngle = a => api.set({angle: clamp(Math.round(a * 10) / 10, -45, 45)});
+  let ddrag = null;
+  dial.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    dial.focus({preventScroll: true});
+    dial.setPointerCapture(e.pointerId);
+    ddrag = {x: e.clientX, a: api.get().angle};
+    dial.classList.add('on');
+  });
+  dial.addEventListener('pointermove', e => {
+    if (!ddrag) return;
+    const a = Math.round((ddrag.a + (e.clientX - ddrag.x) / PXD) * 10) / 10;
+    if (a !== api.get().angle) setAngle(a);
+  });
+  const dEnd = () => { ddrag = null; dial.classList.remove('on'); };
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => dial.addEventListener(t, dEnd));
+  dial.addEventListener('dblclick', () => setAngle(0));
+  dial.addEventListener('keydown', e => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const st = e.shiftKey ? 1 : 0.1;
+    setAngle(api.get().angle + (e.key === 'ArrowUp' ? st : -st));
+  });
+  if (window.ResizeObserver) new ResizeObserver(() => drawDial(dcv, api.get().angle)).observe(dial);
+  anN.addEventListener('input', () => { const v = parseFloat(anN.value); if (isFinite(v) && v >= -45 && v <= 45) setAngle(v); });
+  anN.addEventListener('change', () => { const v = parseFloat(anN.value); setAngle(isFinite(v) ? v : 0); anN.value = api.get().angle; });
+  an0.onclick = () => setAngle(0);
   fh.onclick = () => api.set({flipH: !api.get().flipH});
   fv.onclick = () => api.set({flipV: !api.get().flipV});
   tone0.onclick = () => api.set({...TONE0});
-  q('.rot-l').onclick = () => api.set({rot: api.get().rot + 3});
-  q('.rot-r').onclick = () => api.set({rot: api.get().rot + 1});
+  q('.rot-l').onclick = () => { const s = api.get(); api.set({rot: s.rot + 3, crop: rotCrop(s.crop, -1)}); };
+  q('.rot-r').onclick = () => { const s = api.get(); api.set({rot: s.rot + 1, crop: rotCrop(s.crop, 1)}); };
   fits.forEach(b => b.onclick = () => api.set({fit: b.dataset.fit}));
+  // 자르기
+  const boxNow = (s, fr) => { const b = cropBox(fr.ow, fr.oh, s.crop); return {x: b.x / fr.ow, y: b.y / fr.oh, w: b.w / fr.ow, h: b.h / fr.oh}; };
+  const maxBox = (A, ar, cx = 0.5, cy = 0.5) => {   // 그 비율로 가장 크게
+    const qq = ar / A; let w = 1, h = 1;
+    if (qq >= 1) h = 1 / qq; else w = qq;
+    return {x: clamp(cx - w / 2, 0, 1 - w), y: clamp(cy - h / 2, 0, 1 - h), w, h};
+  };
+  cropBtns.forEach(b => b.onclick = () => {
+    const s = api.get(), fr = api.frame(), A = fr.ow / fr.oh, v = b.dataset.crop;
+    if (v === 'none') return api.set({crop: null});
+    if (v === 'free') return api.set({crop: {ar: 0, ...(s.crop ? boxNow(s, fr) : {x: 0.05, y: 0.05, w: 0.9, h: 0.9})}});
+    const R = RATIOS[+v].r;
+    let land = A >= 1;   // 가로 사진은 가로로, 세로 사진은 세로로 (4:3 → 3:4)
+    if (s.crop) { const bb = boxNow(s, fr); land = bb.w * fr.ow >= bb.h * fr.oh; }
+    const ar = land ? R : 1 / R;
+    api.set({crop: {ar, ...maxBox(A, ar)}});
+  });
+  swap.onclick = () => {
+    const s = api.get();
+    if (!s.crop || !s.crop.ar) return;
+    const fr = api.frame(), bb = boxNow(s, fr), ar = 1 / s.crop.ar;
+    api.set({crop: {ar, ...maxBox(fr.ow / fr.oh, ar, bb.x + bb.w / 2, bb.y + bb.h / 2)}});
+  };
   function sync() {
     const s = api.get();
     fh.setAttribute('aria-pressed', String(s.flipH));
@@ -521,11 +664,23 @@ function makeControls(root, api) {
       r.style.setProperty('--track', `linear-gradient(90deg,var(--sand) ${lo}%,var(--green) ${lo}% ${hi}%,var(--sand) ${hi}%)`);
     }
     tone0.disabled = SLIDERS.every(o => !s[o.k]);
+    drawDial(dcv, s.angle);
+    dial.setAttribute('aria-valuenow', String(s.angle));
+    if (document.activeElement !== anN) anN.value = s.angle;
+    an0.style.visibility = s.angle ? 'visible' : 'hidden';
     rotTxt.textContent = ['', '오른쪽으로 90° 돌린 상태예요.', '180° 돌린 상태예요.', '왼쪽으로 90° 돌린 상태예요.'][s.rot];
     rotTxt.hidden = !s.rot;
     fitBox.hidden = !s.angle;
     fits.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fit === s.fit)));
     fitTxt.textContent = s.fit === 'crop' ? '사진 크기는 그대로, 가장자리가 조금 잘려요.' : '사진은 다 보이고, 모서리가 흰색이 돼요.';
+    const c = s.crop, big = c && c.ar ? Math.max(c.ar, 1 / c.ar) : 0;
+    cropBtns.forEach(b => {
+      const v = b.dataset.crop;
+      const on = v === 'none' ? !c : v === 'free' ? !!c && !c.ar : !!c && !!c.ar && Math.abs(RATIOS[+v].r - big) < 0.01;
+      b.setAttribute('aria-pressed', String(on));
+    });
+    swap.hidden = !c || !c.ar || Math.abs(c.ar - 1) < 0.01;
+    cropTxt.hidden = !c;
   }
   sync();
   return {sync};
@@ -533,18 +688,18 @@ function makeControls(root, api) {
 
 /* ── 사진 목록 ── */
 const grid = $('#grid'), addTile = $('#addTile'), drop = $('#drop'), fileIn = $('#file');
-const countEl = $('#count'), addBtn = $('#addBtn'), clearBtn = $('#clearBtn'), gNote = $('#gNote');
+const countEl = $('#count'), addBtn = $('#addBtn'), clearBtn = $('#clearBtn'), editBtn = $('#editBtn'), gNote = $('#gNote'), gFlip = $('#gFlip');
 const zipBtn = $('#zipBtn'), eachBtn = $('#eachBtn'), suffixIn = $('#suffix'), nameEx = $('#nameEx');
 const prog = $('#prog'), progBar = $('#progBar'), progTxt = $('#progTxt');
 const items = [];
 let seq = 0, loading = 0, saving = false;
-const eff = it => it.own || G;
+const isAdj = it => it.flipOwn || SLIDERS.some(o => it.s[o.k]) || !!it.s.angle || !!it.s.rot || !!it.s.crop;
 
 function newItem(file) {
-  const it = {id: ++seq, file, name: file.name || '사진.png', own: null, ready: false, cv: mkCv(1, 1), work: mkCv(1, 1)};
+  const it = {id: ++seq, file, name: file.name || '사진.png', s: {...DEF, flipH: G.flipH}, flipOwn: false, ready: false, cv: mkCv(1, 1), work: mkCv(1, 1)};
   const el = document.createElement('div');
   el.className = 'ph loading';
-  el.innerHTML = `<button type="button" class="ph-img" title="눌러서 이 사진만 따로 조정"><span class="in"><span class="spin"></span></span><span class="badge">따로 조정</span></button>
+  el.innerHTML = `<button type="button" class="ph-img" title="눌러서 이 사진 조정"><span class="in"><span class="spin"></span></span><span class="badge">조정됨</span></button>
     <div class="ph-bar"><span class="ph-name"></span>
       <button type="button" class="ic" data-act="save" title="이 사진만 저장" aria-label="이 사진만 저장">${ico('down')}</button>
       <button type="button" class="ic del" data-act="del" title="목록에서 빼기" aria-label="목록에서 빼기">${ico('x')}</button></div>`;
@@ -561,16 +716,13 @@ function newItem(file) {
 }
 function drawCard(it) {
   if (!it.cv.isConnected) it.el.querySelector('.in').replaceChildren(it.cv);
-  render(it.cv, it.thumb, it.thumb.width, it.thumb.height, eff(it), false, it.work);
-  it.el.classList.toggle('own', !!it.own);
+  render(it.cv, it.thumb, it.thumb.width, it.thumb.height, it.s, false, it.work);
+  it.el.classList.toggle('own', isAdj(it));
 }
-/* 설정이 바뀌면 화면에 보이는 사진부터, 한 번에 조금씩 다시 그림 → 막대를 움직여도 안 버벅임 */
+/* 목록 그림은 화면에 보이는 것부터, 한 번에 조금씩 다시 그림 → 막대를 움직여도 안 버벅임 */
 const dirty = new Set();
 let rafAll = 0;
-function repaintAll() {
-  for (const it of items) if (it.ready && !it.own) dirty.add(it);
-  if (!rafAll) rafAll = requestAnimationFrame(pump);
-}
+function cardSoon(it) { dirty.add(it); if (!rafAll) rafAll = requestAnimationFrame(pump); }
 function pump() {
   rafAll = 0;
   const t0 = performance.now(), vh = innerHeight;
@@ -628,16 +780,19 @@ async function addFiles(list) {
   if (msg.length) toast(msg.join(' · '), 4200);
 }
 
+const SAVE_ALL_LABEL = '모두 저장 (ZIP)';
 function refreshUI() {
-  const n = items.length, ready = items.filter(i => i.ready).length, own = items.filter(i => i.own).length;
+  const n = items.length, ready = items.filter(i => i.ready).length, adj = items.filter(isAdj).length;
   countEl.innerHTML = n ? `사진 ${n}장` + (loading ? ` <small>· 불러오는 중 ${loading}</small>` : '') : '사진';
   drop.hidden = n > 0;
   grid.hidden = n === 0;
+  editBtn.hidden = n === 0;
+  editBtn.disabled = !ready;
   clearBtn.disabled = !n || loading > 0 || saving;
-  zipBtn.disabled = eachBtn.disabled = !ready || loading > 0 || saving;
-  gNote.textContent = own
-    ? `따로 조정한 사진 ${own}장은 여기 설정이 적용되지 않아요.`
-    : '사진을 누르면 그 사진만 따로 조정할 수 있어요.';
+  zipBtn.disabled = eachBtn.disabled = edSaveAll.disabled = !ready || loading > 0 || saving;
+  if (!saving) edSaveAll.lastChild.textContent = SAVE_ALL_LABEL;
+  gNote.textContent = (adj ? `조정한 사진 ${adj}장 · ` : '')
+    + '밝기·각도·자르기는 사진을 눌러서 한 장씩 조정해요. 옆으로 넘기면서 조정하고, 다 끝나면 한 번에 저장하세요.';
   const first = items[0];
   nameEx.textContent = '예) ' + outName(first ? first.name : 'IMG_1234.jpg', outMime(first ? first.file : {name: 'IMG_1234.jpg', type: 'image/jpeg'}));
 }
@@ -645,9 +800,10 @@ function refreshUI() {
 /* 파일 넣기: 고르기 · 끌어다 놓기(폴더 포함) · 붙여넣기 */
 const pick = () => fileIn.click();
 addBtn.onclick = addTile.onclick = pick;
+editBtn.onclick = () => { const it = items.find(i => i.ready); if (it) openEd(it); };
 fileIn.onchange = () => { addFiles(fileIn.files); fileIn.value = ''; };
 clearBtn.onclick = () => {
-  if (!items.length || !confirm(`사진 ${items.length}장을 모두 뺄까요?`)) return;
+  if (!items.length || !confirm(`사진 ${items.length}장을 모두 뺄까요?` + (items.some(isAdj) ? ' 조정한 내용도 같이 없어져요.' : ''))) return;
   items.splice(0).forEach(it => { it.el.remove(); it.work.width = it.work.height = 0; });
   refreshUI();
 };
@@ -688,57 +844,76 @@ window.addEventListener('paste', e => {
   addFiles(fs.map((f, i) => new File([f], `붙여넣기_${stamp}${fs.length > 1 ? '_' + (i + 1) : ''}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, {type: f.type, lastModified: t.getTime()})));
 });
 
-/* ── 모든 사진 설정 ── */
-const gCtl = makeControls($('#gctl'), {
-  get: () => G,
-  set: p => { Object.assign(G, p); clean(G); persist(); gCtl.sync(); repaintAll(); }
-});
-$('#gReset').onclick = () => { Object.assign(G, DEF); persist(); gCtl.sync(); repaintAll(); };
+/* ── 모든 사진: 좌우반전만 (한 장에서 반전을 따로 바꾼 사진은 그대로) ── */
+function syncG() { gFlip.setAttribute('aria-pressed', String(G.flipH)); }
+gFlip.onclick = () => {
+  G.flipH = !G.flipH;
+  persist(); syncG();
+  for (const it of items) if (!it.flipOwn) { it.s = withFlip(it.s, G.flipH, it.s.flipV); if (it.ready) cardSoon(it); }
+};
 
-/* ── 한 장 따로 조정 창 ── */
+/* ── 한 장씩 조정 창: 양옆으로 넘겨도 사진마다 조정한 게 그대로 남음 ── */
 const ed = $('#ed'), edCv = $('#edCv'), edName = $('#edName'), edCount = $('#edCount'), edMode = $('#edMode');
-const edPrev = $('#edPrev'), edNext = $('#edNext'), edHold = $('#edHold'), edFollow = $('#edFollow'), edAll = $('#edAll');
-const edStage = $('#edStage'), edGrid = $('#edGrid'), edGridBtn = $('#edGridBtn');
-let cur = null, holding = false, rafEd = 0, gridOn = false, angleDrag = false;
+const edPrev = $('#edPrev'), edNext = $('#edNext'), edHold = $('#edHold'), edReset = $('#edReset'), edToneAll = $('#edToneAll'), edSaveAll = $('#edSaveAll');
+const edStage = $('#edStage'), edGrid = $('#edGrid'), edGridBtn = $('#edGridBtn'), edCrop = $('#edCrop'), edCbox = $('#edCbox');
+let cur = null, holding = false, rafEd = 0, gridOn = false, angleDrag = false, edDevKey = '', edDev = null;
 const edWork = mkCv(1, 1);
 const mids = new Map(), midWait = new Set();   // 크게 볼 때 쓰는 중간 크기 사진 (최근 4장만)
+const edSrc = () => mids.get(cur.id) || cur.thumb;
+const edFrame = () => { const src = edSrc(); return geom(src.width, src.height, cur.s); };
 
 const edCtl = makeControls($('#edctl'), {
-  get: () => cur ? eff(cur) : G,
+  get: () => cur ? cur.s : DEF,
+  frame: () => edFrame(),
   set: p => {
-    if (!cur.own) cur.own = {...G};
-    Object.assign(cur.own, p);
-    clean(cur.own);
-    if (same(cur.own, G)) cur.own = null;
-    edSync(); drawCard(cur); edRepaint(); refreshUI();
+    if (!cur) return;
+    const s0 = cur.s, h = 'flipH' in p ? !!p.flipH : s0.flipH, v = 'flipV' in p ? !!p.flipV : s0.flipV;
+    cur.s = clean(withFlip({...s0, ...p, flipH: s0.flipH, flipV: s0.flipV}, h, v));
+    cur.flipOwn = cur.s.flipH !== G.flipH || cur.s.flipV;
+    edSync(); cardSoon(cur); edRepaint(); refreshUI();
   }
 });
 function edSync() {
-  const idx = items.indexOf(cur);
+  const idx = items.indexOf(cur), adj = isAdj(cur);
   edName.textContent = edName.title = cur.name;
   edCount.textContent = `${idx + 1} / ${items.length}`;
-  edMode.textContent = cur.own ? '이 사진만 따로 조정했어요.' : '지금은 모든 사진 설정과 같아요. 여기서 바꾸면 이 사진만 바뀌어요.';
-  edMode.classList.toggle('own', !!cur.own);
-  edFollow.disabled = edAll.disabled = !cur.own;
+  edMode.textContent = adj ? '이 사진 조정됨 · 넘겨도 그대로 남아요' : '← → 키로 넘기면서 한 장씩 조정하세요';
+  edMode.classList.toggle('own', adj);
+  edReset.disabled = !adj;
+  edToneAll.disabled = SLIDERS.every(o => !cur.s[o.k]) && items.every(i => SLIDERS.every(o => !i.s[o.k]));
   edPrev.disabled = !items.slice(0, idx).some(i => i.ready);
   edNext.disabled = !items.slice(idx + 1).some(i => i.ready);
   edCtl.sync();
 }
-function placeGrid() {   // 격자를 사진이 보이는 자리에만
-  edGrid.hidden = !(gridOn || angleDrag) || !cur;
-  if (edGrid.hidden) return;
+const setRect = (el, R) => Object.assign(el.style, {left: R.left + 'px', top: R.top + 'px', width: R.w + 'px', height: R.h + 'px'});
+function placeOverlays() {   // 격자·자르기 네모를 사진이 보이는 자리에 맞춤
+  if (!cur) { edGrid.hidden = edCrop.hidden = true; return; }
   const st = edStage.getBoundingClientRect(), r = Math.min(st.width / edCv.width, st.height / edCv.height);
-  const w = edCv.width * r, h = edCv.height * r;
-  Object.assign(edGrid.style, {left: (st.width - w) / 2 + 'px', top: (st.height - h) / 2 + 'px', width: w + 'px', height: h + 'px'});
+  const R = {w: edCv.width * r, h: edCv.height * r};
+  R.left = (st.width - R.w) / 2; R.top = (st.height - R.h) / 2;
+  edGrid.hidden = !(gridOn || angleDrag);
+  if (!edGrid.hidden) setRect(edGrid, R);
+  const c = holding ? null : cur.s.crop;
+  edCrop.hidden = !c;
+  if (!c) return;
+  setRect(edCrop, R);
+  const fr = edFrame(), b = cropBox(fr.ow, fr.oh, c);
+  Object.assign(edCbox.style, {left: b.x / fr.ow * 100 + '%', top: b.y / fr.oh * 100 + '%', width: b.w / fr.ow * 100 + '%', height: b.h / fr.oh * 100 + '%'});
+  edCbox.classList.toggle('lock', !!c.ar);
 }
 function edRepaint() {
   if (rafEd) return;
   rafEd = requestAnimationFrame(() => {
     rafEd = 0;
     if (!cur) return;
-    const src = mids.get(cur.id) || cur.thumb;
-    render(edCv, src, src.width, src.height, holding ? NEUTRAL : eff(cur), false, edWork);
-    placeGrid();
+    const src = edSrc(), s = holding ? NEUTRAL : cur.s;
+    // 보정 결과는 보정값이 그대로면 다시 계산하지 않음 → 기울기·자르기를 움직일 때 빠름
+    const key = holding ? '' : cur.id + (src === cur.thumb ? 't' : 'm') + SLIDERS.map(o => s[o.k]).join(',');
+    let dev = src;
+    if (key && key === edDevKey) dev = edDev;
+    else if (key) { dev = develop(src, src.width, src.height, s, edWork); edDevKey = key; edDev = dev; }
+    paintGeom(edCv, dev, src.width, src.height, {...s, crop: null}, false);   // 창에서는 전체를 보여주고 자를 곳은 네모로 표시
+    placeOverlays();
   });
 }
 async function loadMid(it) {
@@ -770,21 +945,22 @@ function go(d) {
 edPrev.onclick = () => go(-1);
 edNext.onclick = () => go(1);
 $('#edClose').onclick = () => ed.close();
-ed.addEventListener('close', () => { cur = null; holding = false; edHold.classList.remove('on'); mids.clear(); edWork.width = edWork.height = 1; });
+ed.addEventListener('close', () => { cur = null; holding = false; edHold.classList.remove('on'); mids.clear(); edWork.width = edWork.height = 1; edDevKey = ''; edDev = null; });
 let downOnBackdrop = false;
 ed.addEventListener('pointerdown', e => {
   downOnBackdrop = e.target === ed;
-  if (e.target.matches('[data-k=angle] input[type=range]')) { angleDrag = true; placeGrid(); }   // 기울기 막대를 잡고 있는 동안 격자 보이기
+  if (e.target.closest('.dial')) { angleDrag = true; placeOverlays(); }   // 기울기를 잡고 있는 동안 격자 보이기
 });
-window.addEventListener('pointerup', () => { if (angleDrag) { angleDrag = false; placeGrid(); } });
-window.addEventListener('resize', () => { if (cur) placeGrid(); });
+window.addEventListener('pointerup', () => { if (angleDrag) { angleDrag = false; placeOverlays(); } });
+window.addEventListener('resize', () => { if (cur) placeOverlays(); });
 ed.addEventListener('click', e => { if (downOnBackdrop && e.target === ed) ed.close(); });
-ed.addEventListener('keydown', e => {
-  if (e.target.matches('input')) return;
-  if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
-  else if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
-});
-edGridBtn.onclick = () => { gridOn = !gridOn; edGridBtn.setAttribute('aria-pressed', String(gridOn)); placeGrid(); };
+ed.addEventListener('keydown', e => {   // ← → 는 항상 사진 넘기기 (숫자 칸에 쓰는 중일 때만 빼고)
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if (e.target.matches('input[type=number], input[type=text]')) return;
+  e.preventDefault();
+  go(e.key === 'ArrowLeft' ? -1 : 1);
+}, true);
+edGridBtn.onclick = () => { gridOn = !gridOn; edGridBtn.setAttribute('aria-pressed', String(gridOn)); placeOverlays(); };
 const holdOn = e => { if (e.button > 0 || holding) return; holding = true; edHold.classList.add('on'); edRepaint(); };
 const holdOff = () => { if (!holding) return; holding = false; edHold.classList.remove('on'); edRepaint(); };
 edHold.addEventListener('pointerdown', e => { if (edHold.setPointerCapture) edHold.setPointerCapture(e.pointerId); holdOn(e); });
@@ -793,18 +969,54 @@ edHold.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter'
 edHold.addEventListener('keyup', holdOff);
 edHold.addEventListener('blur', holdOff);
 edHold.addEventListener('contextmenu', e => e.preventDefault());
-edFollow.onclick = () => { cur.own = null; edSync(); drawCard(cur); edRepaint(); refreshUI(); };
-edAll.onclick = () => {
-  const others = items.filter(i => i.own && i !== cur).length;
-  if (others && !confirm(`따로 조정한 다른 사진 ${others}장도 이 설정으로 바뀌어요. 계속할까요?`)) return;
-  Object.assign(G, cur.own);
-  items.forEach(i => { i.own = null; });
-  persist(); gCtl.sync();
-  items.forEach(i => i.ready && drawCard(i));
-  edSync(); edRepaint(); refreshUI();
-  toast('모든 사진에 적용했어요');
+
+/* 자르기 네모 끌기: 가운데 = 옮기기, 모서리·변 = 크기 (비율이 정해져 있으면 모서리만, 비율 유지) */
+let cdrag = null;
+function dragBox(d, dx, dy) {
+  const {x, y, w, h} = d.b, M = 0.04, H = d.h, x2 = x + w, y2 = y + h;
+  if (H === 'move') return {x: clamp(x + dx, 0, 1 - w), y: clamp(y + dy, 0, 1 - h), w, h};
+  if (!d.ar) {
+    let nx = x, ny = y, nw = w, nh = h;
+    if (H.includes('w')) { nx = clamp(x + dx, 0, x2 - M); nw = x2 - nx; }
+    if (H.includes('e')) nw = clamp(w + dx, M, 1 - x);
+    if (H.includes('n')) { ny = clamp(y + dy, 0, y2 - M); nh = y2 - ny; }
+    if (H.includes('s')) nh = clamp(h + dy, M, 1 - y);
+    return {x: nx, y: ny, w: nw, h: nh};
+  }
+  const k = d.A / d.ar, sx = H.includes('w') ? -1 : 1, sy = H.includes('n') ? -1 : 1;   // k: 0~1 단위에서 세로 = 가로 × k
+  let nw = Math.abs(dx * d.A) >= Math.abs(dy) ? w + sx * dx : (h + sy * dy) / k;
+  const maxW = Math.min(sx < 0 ? x2 : 1 - x, (sy < 0 ? y2 : 1 - y) / k);
+  nw = clamp(nw, Math.min(M, maxW), maxW);
+  const nh = nw * k;
+  return {x: sx < 0 ? x2 - nw : x, y: sy < 0 ? y2 - nh : y, w: nw, h: nh};
+}
+edCbox.addEventListener('pointerdown', e => {
+  if (e.button > 0 || !cur || !cur.s.crop) return;
+  e.preventDefault();
+  const fr = edFrame(), b = cropBox(fr.ow, fr.oh, cur.s.crop);
+  cdrag = {h: e.target.dataset.h || 'move', px: e.clientX, py: e.clientY, A: fr.ow / fr.oh, ar: cur.s.crop.ar,
+    b: {x: b.x / fr.ow, y: b.y / fr.oh, w: b.w / fr.ow, h: b.h / fr.oh}, rect: edCrop.getBoundingClientRect()};
+  edCbox.setPointerCapture(e.pointerId);
+});
+edCbox.addEventListener('pointermove', e => {
+  if (!cdrag) return;
+  const nb = dragBox(cdrag, (e.clientX - cdrag.px) / cdrag.rect.width, (e.clientY - cdrag.py) / cdrag.rect.height);
+  cur.s = clean({...cur.s, crop: {ar: cdrag.ar, ...nb}});
+  placeOverlays(); cardSoon(cur);
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => edCbox.addEventListener(t, () => { if (!cdrag) return; cdrag = null; edSync(); refreshUI(); }));
+
+edReset.onclick = () => { cur.s = {...DEF, flipH: G.flipH}; cur.flipOwn = false; edSync(); cardSoon(cur); edRepaint(); refreshUI(); };
+edToneAll.onclick = () => {
+  const tone = {}; SLIDERS.forEach(o => { tone[o.k] = cur.s[o.k]; });
+  const others = items.filter(i => i !== cur && SLIDERS.some(o => i.s[o.k]) && SLIDERS.some(o => i.s[o.k] !== tone[o.k])).length;
+  if (others && !confirm(`보정을 따로 해 둔 다른 사진 ${others}장도 이 보정으로 바뀌어요. 계속할까요?`)) return;
+  items.forEach(i => { if (i !== cur) { i.s = {...i.s, ...tone}; if (i.ready) cardSoon(i); } });
+  edSync(); refreshUI();
+  toast('밝기·대비·채도·색온도·선명도를 모든 사진에 똑같이 넣었어요 (각도·자르기는 그대로)', 3200);
 };
 $('#edSave').onclick = () => cur && saveOne(cur);
+edSaveAll.onclick = () => saveAll(true);
 
 /* ── 저장 ── */
 const fmtBtns = document.querySelectorAll('[data-fmt]'), sizeBtns = document.querySelectorAll('[data-size]');
@@ -830,8 +1042,8 @@ function outName(name, mime) {
   return (base + suffix).replace(/[\\/:*?"<>|]/g, '_') + EXT[mime];
 }
 
-/* 저장용 처리(보정+반전+JPG 변환)는 백그라운드(워커)에서 여러 장 동시에 — 화면이 안 멈추고 훨씬 빠름. 안 되면 화면에서 처리 */
-const ENC_SRC = [mkCv, geom, blurData, develop, paintGeom, render].map(String).join('\n')
+/* 저장용 처리(보정+반전+자르기+JPG 변환)는 백그라운드(워커)에서 여러 장 동시에 — 화면이 안 멈추고 훨씬 빠름. 안 되면 화면에서 처리 */
+const ENC_SRC = [mkCv, geom, cropBox, blurData, develop, paintGeom, render].map(String).join('\n')
   + '\nonmessage=async e=>{const d=e.data;try{const c=new OffscreenCanvas(1,1);render(c,d.bmp,d.bmp.width,d.bmp.height,d.s,d.bg);d.bmp.close();'
   + 'postMessage({id:d.id,b:await c.convertToBlob({type:d.type,quality:d.q})})}catch(err){postMessage({id:d.id,err:String(err)})}}';
 let workers = null, workerBroken = false, encSeq = 0;
@@ -861,9 +1073,9 @@ function workerRun(w, msg, transfer) {
   });
 }
 async function renderFull(it, worker) {
-  const img = await decode(it.file), mime = outMime(it.file), s = {...eff(it)}, bg = mime === 'image/jpeg';
-  const nw = img.naturalWidth, nh = img.naturalHeight, g = geom(nw, nh, s);
-  const sc = size ? Math.min(1, size / Math.max(g.ow, g.oh)) : 1;   // 크기: 결과 사진의 긴 쪽 기준
+  const img = await decode(it.file), mime = outMime(it.file), s = {...it.s}, bg = mime === 'image/jpeg';
+  const nw = img.naturalWidth, nh = img.naturalHeight, g = geom(nw, nh, s), b = cropBox(g.ow, g.oh, s.crop);
+  const sc = size ? Math.min(1, size / Math.max(b.w, b.h)) : 1;   // 크기: 결과 사진(자른 뒤)의 긴 쪽 기준
   const w = Math.max(1, Math.round(nw * sc)), h = Math.max(1, Math.round(nh * sc));
   const prep = () => { const c = mkCv(w, h), x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, w, h); return c; };
   let blob = null;
@@ -910,6 +1122,7 @@ function showProg(done, total, text) {
   prog.hidden = false;
   progBar.style.width = (total ? done / total * 100 : 0) + '%';
   progTxt.textContent = text || `만드는 중… ${done} / ${total}`;
+  edSaveAll.lastChild.textContent = text ? '저장 중…' : `저장 중 ${done}/${total}`;
 }
 async function saveAll(zip) {
   const list = items.filter(i => i.ready);
@@ -943,8 +1156,9 @@ async function saveAll(zip) {
     download(await makeZip(out), `사진_${out.length}장_${ymd}.zip`);
   }
   showProg(list.length, list.length, okN ? `${okN}장 저장 완료` + (fail ? ` · ${fail}장 실패` : '') : '저장하지 못했어요');
-  if (fail) toast(`${fail}장은 저장하지 못했어요. 너무 큰 사진이면 JPG로 해 보세요.`, 4200);
   saving = false; refreshUI();
+  if (fail) toast(`${fail}장은 저장하지 못했어요. 너무 큰 사진이면 JPG로 해 보세요.`, 4200);
+  else if (okN) toast(`${okN}장 저장했어요`);
 }
 zipBtn.onclick = () => saveAll(true);
 eachBtn.onclick = () => saveAll(false);
@@ -991,6 +1205,7 @@ function toast(msg, ms = 2600) {
   toastT = setTimeout(() => toastEl.classList.remove('show'), ms);
 }
 
+syncG();
 syncSave();
 refreshUI();
 })();
