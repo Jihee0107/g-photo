@@ -155,6 +155,16 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
 .cbox b[data-h=n]{left:50%;top:0;width:24px;height:8px;cursor:ns-resize}.cbox b[data-h=s]{left:50%;top:100%;width:24px;height:8px;cursor:ns-resize}
 .cbox b[data-h=e]{left:100%;top:50%;width:8px;height:24px;cursor:ew-resize}.cbox b[data-h=w]{left:0;top:50%;width:8px;height:24px;cursor:ew-resize}
 .cbox.lock b[data-h=n],.cbox.lock b[data-h=s],.cbox.lock b[data-h=e],.cbox.lock b[data-h=w]{display:none}
+/* 가리기(블러·모자이크) 그리기 판 */
+.drawov{position:absolute;cursor:crosshair;touch-action:none;z-index:1}
+.drawov.brush{cursor:none}
+.shape-prev{position:absolute;border:2px dashed #fff;box-shadow:0 0 0 1px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.25);background:rgba(255,255,255,.12);pointer-events:none}
+.shape-prev.e{border-radius:50%}
+.brush-cur{position:absolute;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.55),inset 0 0 0 1px rgba(0,0,0,.35);pointer-events:none;transform:translate(-50%,-50%)}
+.brush-cur.erase{border-style:dashed}
+.fx-tools{margin-bottom:8px}
+.fx-tools button{display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.fx-tools svg.i{width:15px;height:15px}
 .nav{position:absolute;top:calc(50% - 22px);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2}
 .nav svg.i{width:24px;height:24px}
 .nav:hover{background:rgba(255,255,255,.26)}
@@ -272,6 +282,7 @@ dialog.ed::backdrop{background:rgba(30,26,22,.62)}
     <div class="ed-view">
       <div class="ed-stage" id="edStage"><canvas id="edCv"></canvas><div class="gridov" id="edGrid" hidden></div>
         <div class="cropov" id="edCrop" hidden><div class="cbox" id="edCbox"><b data-h="nw"></b><b data-h="n"></b><b data-h="ne"></b><b data-h="e"></b><b data-h="se"></b><b data-h="s"></b><b data-h="sw"></b><b data-h="w"></b></div></div>
+        <div class="drawov" id="edDraw" hidden><i class="shape-prev" id="edShape" hidden></i><i class="brush-cur" id="edBrush" hidden></i></div>
       </div>
       <button type="button" class="nav prev" id="edPrev" aria-label="이전 사진" data-ico="left"></button>
       <button type="button" class="nav next" id="edNext" aria-label="다음 사진" data-ico="right"></button>
@@ -326,7 +337,11 @@ const ICON = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
   eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
-  grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>'
+  grid: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+  rect: '<rect width="18" height="14" x="3" y="5" rx="1.5"/>',
+  circle: '<circle cx="12" cy="12" r="9"/>',
+  brush: '<path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z"/>',
+  eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>'
 };
 const ico = n => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
 document.querySelectorAll('[data-ico]').forEach(el => el.insertAdjacentHTML('afterbegin', ico(el.dataset.ico)));
@@ -341,7 +356,7 @@ const SLIDERS = [
   {k: 'sharp', l: '선명도', min: 0, max: 100}
 ];
 const TONE0 = {bright: 0, contrast: 0, sat: 0, warm: 0, sharp: 0};
-const DEF = {flipH: true, flipV: false, ...TONE0, angle: 0, rot: 0, fit: 'crop', crop: null};
+const DEF = {flipH: true, flipV: false, ...TONE0, angle: 0, rot: 0, fit: 'crop', crop: null, fx: null, fxStyle: 'blur', fxAmt: 60};
 const NEUTRAL = {...DEF, flipH: false};
 const RATIOS = [{l: '1:1', r: 1}, {l: '4:3', r: 4 / 3}, {l: '16:9', r: 16 / 9}];
 const PXD = 10;   // 기울기 눈금자: 10px 끌면 1°
@@ -358,6 +373,11 @@ function clean(s) {
   s.rot = ((Math.round(+s.rot || 0) % 4) + 4) % 4;
   s.fit = s.fit === 'white' ? 'white' : 'crop';
   s.crop = cleanCrop(s.crop);
+  // 가리기: 원본 사진 기준 위치(긴 쪽 = 1)로 저장 → 반전·기울기·자르기를 바꿔도 가린 곳에 그대로 붙어 있음
+  // {t:'r'|'e', x, y(가운데), w, h, a(회전)} 네모·동그라미 / {t:'b', e(지우개), r, pts:[[x,y]…]} 붓
+  s.fx = Array.isArray(s.fx) && s.fx.length ? s.fx : null;
+  s.fxStyle = s.fxStyle === 'mosaic' ? 'mosaic' : 'blur';
+  s.fxAmt = clamp(Math.round(+s.fxAmt || 60), 10, 100);
   return s;
 }
 function withFlip(s, h, v) {   // 반전을 바꾸면 자르기 위치도 같이 뒤집음
@@ -377,7 +397,8 @@ const G = {flipH: !(saved.g && saved.g.flipH === false)};
 let fmt = ['same', 'jpg', 'png'].includes(saved.fmt) ? saved.fmt : 'same';
 let size = [0, 2000, 1080].includes(saved.size) ? saved.size : 0;
 let suffix = typeof saved.suffix === 'string' ? saved.suffix : '_반전';
-function persist() { try { localStorage.setItem(KEY, JSON.stringify({g: G, fmt, size, suffix})); } catch (e) {} }
+let brushPx = clamp(+saved.brush || 40, 8, 300);   // 붓 크기 (화면 픽셀)
+function persist() { try { localStorage.setItem(KEY, JSON.stringify({g: G, fmt, size, suffix, brush: brushPx})); } catch (e) {} }
 const EXT = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp'};
 
 /* ── 사진 처리: 보정(밝기·대비·채도·색온도·선명도) → 반전·돌리기 → 자르기 ──
@@ -423,7 +444,7 @@ function blurData(src, w, h, sigma) {   // 가장자리를 늘려 붙인 뒤 흐
   out.width = out.height = 0;
   return d;
 }
-function develop(src, w, h, s, work) {
+function toneStep(src, w, h, s, work) {
   if (!s.bright && !s.contrast && !s.sat && !s.warm && !s.sharp) return src;
   const cv = work || mkCv(w, h);
   if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
@@ -466,6 +487,98 @@ function develop(src, w, h, s, work) {
   }
   ctx.putImageData(id, 0, 0);
   return cv;
+}
+function fxLayer(base, w, h, s, out) {   // 사진 전체를 흐리게(또는 모자이크로) 만든 판
+  const L = Math.max(w, h), c = out || mkCv(w, h);
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const x = c.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.globalCompositeOperation = 'source-over';
+  x.clearRect(0, 0, w, h);
+  if (s.fxStyle === 'mosaic' || typeof x.filter !== 'string') {
+    const bs = Math.max(3, L * 0.03 * s.fxAmt / 100), tw = Math.max(1, Math.round(w / bs)), th = Math.max(1, Math.round(h / bs));
+    const t = mkCv(tw, th), tx = t.getContext('2d');
+    tx.imageSmoothingQuality = 'high';
+    tx.drawImage(base, 0, 0, tw, th);
+    x.imageSmoothingEnabled = false;
+    x.drawImage(t, 0, 0, w, h);
+    x.imageSmoothingEnabled = true;
+    t.width = t.height = 0;
+  } else {
+    x.drawImage(base, 0, 0);   // 가장자리가 비어 보이지 않게 원본을 먼저 깔고
+    x.filter = `blur(${Math.max(2, L * 0.03 * s.fxAmt / 100)}px)`;
+    x.drawImage(base, 0, 0);
+    x.filter = 'none';
+  }
+  return c;
+}
+function fxMask(w, h, s, out) {   // 가릴 곳 (네모·동그라미·붓, 지우개는 빼기)
+  const L = Math.max(w, h), m = out || mkCv(w, h);
+  if (m.width !== w || m.height !== h) { m.width = w; m.height = h; }
+  const x = m.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.globalCompositeOperation = 'source-over';
+  x.clearRect(0, 0, w, h);
+  const soft = typeof x.filter === 'string' && s.fxStyle !== 'mosaic';
+  for (const f of s.fx || []) {
+    if (f.t === 'b') {
+      x.globalCompositeOperation = f.e ? 'destination-out' : 'source-over';
+      const r = Math.max(0.5, f.r * L), step = Math.max(1, r * 0.25);
+      const dab = (px, py) => {
+        const g = x.createRadialGradient(px, py, r * 0.5, px, py, r);
+        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill();
+      };
+      let lx = f.pts[0][0] * L, ly = f.pts[0][1] * L;
+      dab(lx, ly);
+      for (let i = 1; i < f.pts.length; i++) {   // 점 사이를 일정 간격으로 찍어서 빈틈 없게
+        const qx = f.pts[i][0] * L, qy = f.pts[i][1] * L;
+        let d = Math.hypot(qx - lx, qy - ly);
+        while (d >= step) { lx += (qx - lx) * step / d; ly += (qy - ly) * step / d; dab(lx, ly); d -= step; }
+      }
+    } else {
+      x.globalCompositeOperation = 'source-over';
+      x.save();
+      x.translate(f.x * L, f.y * L);
+      x.rotate(f.a || 0);
+      if (soft) x.filter = `blur(${Math.max(1, L * 0.003)}px)`;
+      x.fillStyle = '#000';
+      x.beginPath();
+      if (f.t === 'e') x.ellipse(0, 0, f.w * L / 2, f.h * L / 2, 0, 0, Math.PI * 2);
+      else x.rect(-f.w * L / 2, -f.h * L / 2, f.w * L, f.h * L);
+      x.fill();
+      x.filter = 'none';
+      x.restore();
+    }
+  }
+  x.globalCompositeOperation = 'source-over';
+  return m;
+}
+function composeFx(base, layer, w, h, s, out, tmp, mask) {   // 원본 위에 가릴 곳만 흐린 판을 덮음
+  const m = fxMask(w, h, s, mask), t = tmp || mkCv(w, h);
+  if (t.width !== w || t.height !== h) { t.width = w; t.height = h; }
+  const tx = t.getContext('2d');
+  tx.globalCompositeOperation = 'source-over';
+  tx.clearRect(0, 0, w, h);
+  tx.drawImage(layer, 0, 0);
+  tx.globalCompositeOperation = 'destination-in';
+  tx.drawImage(m, 0, 0);
+  tx.globalCompositeOperation = 'source-over';
+  if (out.width !== w || out.height !== h) { out.width = w; out.height = h; }
+  const ox = out.getContext('2d');
+  if (out !== base) { ox.clearRect(0, 0, w, h); ox.drawImage(base, 0, 0); }
+  ox.drawImage(t, 0, 0);
+  if (!tmp) t.width = t.height = 0;
+  if (!mask) m.width = m.height = 0;
+  return out;
+}
+function develop(src, w, h, s, work) {
+  const t = toneStep(src, w, h, s, work);
+  if (!s.fx) return t;
+  const layer = fxLayer(t, w, h, s);
+  const out = composeFx(t, layer, w, h, s, t === src ? (work || mkCv(w, h)) : t);
+  layer.width = layer.height = 0;
+  return out;
 }
 function paintGeom(cv, src, sw, sh, s, bg) {
   const g = geom(sw, sh, s), b = cropBox(g.ow, g.oh, s.crop);
@@ -576,6 +689,18 @@ function makeControls(root, api) {
     </div>
     <button type="button" class="btn sm crop-swap">가로 ↔ 세로 바꾸기</button>
     <p class="hint crop-txt">네모 안을 끌면 이동, 모서리를 끌면 크기 조절</p>
+  </div>
+  <div class="ctl">
+    <div class="ctl-head"><span class="ctl-label">가리기</span>
+      <span><button type="button" class="mini fx-undo" title="마지막에 그린 것 지우기 (Ctrl+Z)">되돌리기</button> <button type="button" class="mini fx-clear">모두 지우기</button></span></div>
+    <div class="seg fx-tools" style="--n:4">
+      <button type="button" data-tool="rect">${ico('rect')}네모</button><button type="button" data-tool="ellipse">${ico('circle')}동그라미</button>
+      <button type="button" data-tool="brush">${ico('brush')}붓</button><button type="button" data-tool="erase">${ico('eraser')}지우개</button>
+    </div>
+    <div class="seg"><button type="button" data-fxs="blur">흐리게</button><button type="button" data-fxs="mosaic">모자이크</button></div>
+    <div class="sl" data-k="fxAmt"><span class="sl-l">세기</span><input type="range" min="10" max="100" step="1" aria-label="가리기 세기"><input type="number" class="sl-n" min="10" max="100" step="1" aria-label="가리기 세기 숫자"><span></span></div>
+    <div class="sl brush-row"><span class="sl-l">붓 크기</span><input type="range" min="8" max="300" step="1" aria-label="붓 크기"><input type="number" class="sl-n" min="8" max="300" step="1" aria-label="붓 크기 숫자"><span></span></div>
+    <p class="hint fx-txt"></p>
   </div>`;
   const q = s => root.querySelector(s);
   const fh = q('[data-k=flipH]'), fv = q('[data-k=flipV]'), tone0 = q('.tone-0');
@@ -650,8 +775,40 @@ function makeControls(root, api) {
     const fr = api.frame(), bb = boxNow(s, fr), ar = 1 / s.crop.ar;
     api.set({crop: {ar, ...maxBox(fr.ow / fr.oh, ar, bb.x + bb.w / 2, bb.y + bb.h / 2)}});
   };
+  // 가리기: 도구(네모·동그라미·붓·지우개)는 창 상태, 흐리게/모자이크·세기는 사진마다
+  const toolBtns = root.querySelectorAll('[data-tool]'), fxsBtns = root.querySelectorAll('[data-fxs]');
+  const fxUndo = q('.fx-undo'), fxClear = q('.fx-clear'), fxTxt = q('.fx-txt'), brushRow = q('.brush-row');
+  const amtR = q('.sl[data-k=fxAmt] input[type=range]'), amtN = q('.sl[data-k=fxAmt] .sl-n');
+  const brR = brushRow.querySelector('input[type=range]'), brN = brushRow.querySelector('.sl-n');
+  toolBtns.forEach(b => b.onclick = () => api.setTool(api.tool() === b.dataset.tool ? null : b.dataset.tool));
+  fxsBtns.forEach(b => b.onclick = () => api.set({fxStyle: b.dataset.fxs}));
+  amtR.addEventListener('input', () => api.set({fxAmt: +amtR.value}));
+  amtN.addEventListener('change', () => { const v = parseFloat(amtN.value); api.set({fxAmt: isFinite(v) ? v : 60}); amtN.value = api.get().fxAmt; });
+  brR.addEventListener('input', () => api.setBrush(+brR.value));
+  brN.addEventListener('change', () => { const v = parseFloat(brN.value); api.setBrush(isFinite(v) ? v : 40); brN.value = api.brush(); });
+  fxUndo.onclick = () => { const f = api.get().fx; if (f) api.set({fx: f.slice(0, -1)}); };
+  fxClear.onclick = () => api.set({fx: null});
+  const FX_TXT = {
+    '': '도구를 고르고 사진 위에서 끌어서 가리세요. 번호판·이름·얼굴 가릴 때 쓰세요.',
+    rect: '사진 위에서 끌어서 네모를 그리세요 · Shift를 누르면 정사각형',
+    ellipse: '사진 위에서 끌어서 동그라미를 그리세요 · Shift를 누르면 정원',
+    brush: '가릴 곳을 칠하세요 · 마우스 휠로 붓 크기 조절',
+    erase: '칠한 곳을 문질러서 지워요 · 마우스 휠로 붓 크기 조절'
+  };
   function sync() {
     const s = api.get();
+    const tool = api.tool() || '';
+    toolBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
+    fxsBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fxs === s.fxStyle)));
+    amtR.value = s.fxAmt; if (document.activeElement !== amtN) amtN.value = s.fxAmt;
+    const ap = (s.fxAmt - 10) / 90 * 100;
+    amtR.style.setProperty('--track', `linear-gradient(90deg,var(--green) ${ap}%,var(--sand) ${ap}%)`);
+    brushRow.hidden = tool !== 'brush' && tool !== 'erase';
+    brR.value = api.brush(); if (document.activeElement !== brN) brN.value = api.brush();
+    const bp = (api.brush() - 8) / 292 * 100;
+    brR.style.setProperty('--track', `linear-gradient(90deg,var(--green) ${bp}%,var(--sand) ${bp}%)`);
+    fxUndo.disabled = fxClear.disabled = !s.fx;
+    fxTxt.textContent = FX_TXT[tool] + (s.fx ? ' · Ctrl+Z 되돌리기' : '');
     fh.setAttribute('aria-pressed', String(s.flipH));
     fv.setAttribute('aria-pressed', String(s.flipV));
     for (const {k, o, r, n, x} of rows) {
@@ -693,7 +850,7 @@ const zipBtn = $('#zipBtn'), eachBtn = $('#eachBtn'), suffixIn = $('#suffix'), n
 const prog = $('#prog'), progBar = $('#progBar'), progTxt = $('#progTxt');
 const items = [];
 let seq = 0, loading = 0, saving = false;
-const isAdj = it => it.flipOwn || SLIDERS.some(o => it.s[o.k]) || !!it.s.angle || !!it.s.rot || !!it.s.crop;
+const isAdj = it => it.flipOwn || SLIDERS.some(o => it.s[o.k]) || !!it.s.angle || !!it.s.rot || !!it.s.crop || !!it.s.fx;
 
 function newItem(file) {
   const it = {id: ++seq, file, name: file.name || '사진.png', s: {...DEF, flipH: G.flipH}, flipOwn: false, ready: false, cv: mkCv(1, 1), work: mkCv(1, 1)};
@@ -856,15 +1013,21 @@ gFlip.onclick = () => {
 const ed = $('#ed'), edCv = $('#edCv'), edName = $('#edName'), edCount = $('#edCount'), edMode = $('#edMode');
 const edPrev = $('#edPrev'), edNext = $('#edNext'), edHold = $('#edHold'), edReset = $('#edReset'), edToneAll = $('#edToneAll'), edSaveAll = $('#edSaveAll');
 const edStage = $('#edStage'), edGrid = $('#edGrid'), edGridBtn = $('#edGridBtn'), edCrop = $('#edCrop'), edCbox = $('#edCbox');
-let cur = null, holding = false, rafEd = 0, gridOn = false, angleDrag = false, edDevKey = '', edDev = null;
-const edWork = mkCv(1, 1);
+const edDraw = $('#edDraw'), edShape = $('#edShape'), edBrush = $('#edBrush');
+let cur = null, holding = false, rafEd = 0, gridOn = false, angleDrag = false, tool = null;
+let edToneKey = '', edTone = null, edFxKey = '', edFxL = null;
+const edWork = mkCv(1, 1), edFxCv = mkCv(1, 1), edTmp = mkCv(1, 1), edMask = mkCv(1, 1), edComp = mkCv(1, 1);   // 창 미리보기용 판 (다시 씀)
 const mids = new Map(), midWait = new Set();   // 크게 볼 때 쓰는 중간 크기 사진 (최근 4장만)
 const edSrc = () => mids.get(cur.id) || cur.thumb;
 const edFrame = () => { const src = edSrc(); return geom(src.width, src.height, cur.s); };
 
-const edCtl = makeControls($('#edctl'), {
+const edApi = {
   get: () => cur ? cur.s : DEF,
   frame: () => edFrame(),
+  tool: () => tool,
+  setTool: t => { tool = t; edBrush.hidden = true; edShape.hidden = true; if (cur) { edCtl.sync(); placeOverlays(); } },
+  brush: () => brushPx,
+  setBrush: v => { brushPx = clamp(Math.round(v), 8, 300); persist(); edCtl.sync(); sizeBrushCur(); },
   set: p => {
     if (!cur) return;
     const s0 = cur.s, h = 'flipH' in p ? !!p.flipH : s0.flipH, v = 'flipV' in p ? !!p.flipV : s0.flipV;
@@ -872,7 +1035,8 @@ const edCtl = makeControls($('#edctl'), {
     cur.flipOwn = cur.s.flipH !== G.flipH || cur.s.flipV;
     edSync(); cardSoon(cur); edRepaint(); refreshUI();
   }
-});
+};
+const edCtl = makeControls($('#edctl'), edApi);
 function edSync() {
   const idx = items.indexOf(cur), adj = isAdj(cur);
   edName.textContent = edName.title = cur.name;
@@ -887,17 +1051,21 @@ function edSync() {
 }
 const setRect = (el, R) => Object.assign(el.style, {left: R.left + 'px', top: R.top + 'px', width: R.w + 'px', height: R.h + 'px'});
 function placeOverlays() {   // 격자·자르기 네모를 사진이 보이는 자리에 맞춤
-  if (!cur) { edGrid.hidden = edCrop.hidden = true; return; }
-  const st = edStage.getBoundingClientRect(), r = Math.min(st.width / edCv.width, st.height / edCv.height);
-  const R = {w: edCv.width * r, h: edCv.height * r};
+  if (!cur) { edGrid.hidden = edCrop.hidden = edDraw.hidden = true; return; }
+  const fr = holding ? {ow: edCv.width, oh: edCv.height} : edFrame();   // 다시 그리기 전이어도 지금 설정 기준으로 맞춤
+  const st = edStage.getBoundingClientRect(), r = Math.min(st.width / fr.ow, st.height / fr.oh);
+  const R = {w: fr.ow * r, h: fr.oh * r};
   R.left = (st.width - R.w) / 2; R.top = (st.height - R.h) / 2;
   edGrid.hidden = !(gridOn || angleDrag);
   if (!edGrid.hidden) setRect(edGrid, R);
+  edDraw.hidden = !tool || holding;
+  edDraw.classList.toggle('brush', tool === 'brush' || tool === 'erase');
+  if (!edDraw.hidden) setRect(edDraw, R);
   const c = holding ? null : cur.s.crop;
   edCrop.hidden = !c;
   if (!c) return;
   setRect(edCrop, R);
-  const fr = edFrame(), b = cropBox(fr.ow, fr.oh, c);
+  const b = cropBox(fr.ow, fr.oh, c);
   Object.assign(edCbox.style, {left: b.x / fr.ow * 100 + '%', top: b.y / fr.oh * 100 + '%', width: b.w / fr.ow * 100 + '%', height: b.h / fr.oh * 100 + '%'});
   edCbox.classList.toggle('lock', !!c.ar);
 }
@@ -906,13 +1074,20 @@ function edRepaint() {
   rafEd = requestAnimationFrame(() => {
     rafEd = 0;
     if (!cur) return;
-    const src = edSrc(), s = holding ? NEUTRAL : cur.s;
-    // 보정 결과는 보정값이 그대로면 다시 계산하지 않음 → 기울기·자르기를 움직일 때 빠름
-    const key = holding ? '' : cur.id + (src === cur.thumb ? 't' : 'm') + SLIDERS.map(o => s[o.k]).join(',');
-    let dev = src;
-    if (key && key === edDevKey) dev = edDev;
-    else if (key) { dev = develop(src, src.width, src.height, s, edWork); edDevKey = key; edDev = dev; }
-    paintGeom(edCv, dev, src.width, src.height, {...s, crop: null}, false);   // 창에서는 전체를 보여주고 자를 곳은 네모로 표시
+    const src = edSrc(), s = holding ? NEUTRAL : cur.s, w = src.width, h = src.height;
+    let img = src;
+    if (!holding) {
+      // 보정·흐린 판은 값이 그대로면 다시 계산하지 않음 → 기울기·자르기·붓질이 빠름
+      const tk = cur.id + (src === cur.thumb ? 't' : 'm') + SLIDERS.map(o => s[o.k]).join(',');
+      if (tk !== edToneKey) { edTone = toneStep(src, w, h, s, edWork); edToneKey = tk; edFxKey = ''; }
+      img = edTone;
+      if (s.fx) {
+        const fk = tk + s.fxStyle + s.fxAmt;
+        if (fk !== edFxKey) { edFxL = fxLayer(edTone, w, h, s, edFxCv); edFxKey = fk; }
+        img = composeFx(edTone, edFxL, w, h, s, edComp, edTmp, edMask);
+      }
+    }
+    paintGeom(edCv, img, w, h, {...s, crop: null}, false);   // 창에서는 전체를 보여주고 자를 곳은 네모로 표시
     placeOverlays();
   });
 }
@@ -945,7 +1120,11 @@ function go(d) {
 edPrev.onclick = () => go(-1);
 edNext.onclick = () => go(1);
 $('#edClose').onclick = () => ed.close();
-ed.addEventListener('close', () => { cur = null; holding = false; edHold.classList.remove('on'); mids.clear(); edWork.width = edWork.height = 1; edDevKey = ''; edDev = null; });
+ed.addEventListener('close', () => {
+  cur = null; holding = false; edHold.classList.remove('on'); mids.clear();
+  [edWork, edFxCv, edTmp, edMask, edComp].forEach(c => { c.width = c.height = 1; });
+  edToneKey = edFxKey = ''; edTone = edFxL = null;
+});
 let downOnBackdrop = false;
 ed.addEventListener('pointerdown', e => {
   downOnBackdrop = e.target === ed;
@@ -954,9 +1133,13 @@ ed.addEventListener('pointerdown', e => {
 window.addEventListener('pointerup', () => { if (angleDrag) { angleDrag = false; placeOverlays(); } });
 window.addEventListener('resize', () => { if (cur) placeOverlays(); });
 ed.addEventListener('click', e => { if (downOnBackdrop && e.target === ed) ed.close(); });
-ed.addEventListener('keydown', e => {   // ← → 는 항상 사진 넘기기 (숫자 칸에 쓰는 중일 때만 빼고)
-  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+ed.addEventListener('keydown', e => {   // ← → 는 항상 사진 넘기기 (숫자 칸에 쓰는 중일 때만 빼고), Ctrl+Z = 가리기 되돌리기
   if (e.target.matches('input[type=number], input[type=text]')) return;
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+    if (cur && cur.s.fx) { e.preventDefault(); edApi.set({fx: cur.s.fx.slice(0, -1)}); }
+    return;
+  }
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   e.preventDefault();
   go(e.key === 'ArrowLeft' ? -1 : 1);
 }, true);
@@ -1006,6 +1189,92 @@ edCbox.addEventListener('pointermove', e => {
 });
 ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => edCbox.addEventListener(t, () => { if (!cdrag) return; cdrag = null; edSync(); refreshUI(); }));
 
+/* 가리기 그리기: 화면에서 그린 모양을 원본 사진 기준 위치로 바꿔 저장 (반전·기울기를 거꾸로 계산) */
+let dr = null;
+function viewToSrc(vx, vy, r) {
+  const src = edSrc(), s = cur.s, g = geom(src.width, src.height, s), th = s.rot * Math.PI / 2 + g.t;
+  const dx = vx / r.width * g.ow - g.ow / 2, dy = vy / r.height * g.oh - g.oh / 2, c = Math.cos(th), sn = Math.sin(th);
+  let x = dx * c + dy * sn, y = -dx * sn + dy * c;
+  x /= s.flipH ? -g.k : g.k;
+  y /= s.flipV ? -g.k : g.k;
+  const L = Math.max(src.width, src.height), r4 = v => Math.round(v * 1e4) / 1e4;
+  // fx·fy: 화면 1px → 원본 기준 길이 (가로·세로)
+  return {x: r4((x + src.width / 2) / L), y: r4((y + src.height / 2) / L), fx: g.ow / r.width / g.k / L, fy: g.oh / r.height / g.k / L, th};
+}
+function sizeBrushCur() { edBrush.style.width = edBrush.style.height = brushPx + 'px'; }
+function moveBrushCur(e) {
+  if (tool !== 'brush' && tool !== 'erase') { edBrush.hidden = true; return; }
+  const r = edDraw.getBoundingClientRect();
+  sizeBrushCur();
+  edBrush.classList.toggle('erase', tool === 'erase');
+  edBrush.style.left = e.clientX - r.left + 'px';
+  edBrush.style.top = e.clientY - r.top + 'px';
+  edBrush.hidden = false;
+}
+function shapeRect(d, vx, vy, sq) {   // 끈 자리 → 화면 네모 (Shift = 정사각형·정원)
+  const x1 = d.x0, y1 = d.y0;
+  let x2 = clamp(vx, 0, d.r.width), y2 = clamp(vy, 0, d.r.height);
+  if (sq) { const m = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)); x2 = x1 + Math.sign(x2 - x1 || 1) * m; y2 = y1 + Math.sign(y2 - y1 || 1) * m; }
+  return {l: Math.min(x1, x2), t: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1)};
+}
+function showShape(d, vx, vy, sq) {
+  const b = shapeRect(d, vx, vy, sq);
+  Object.assign(edShape.style, {left: b.l + 'px', top: b.t + 'px', width: b.w + 'px', height: b.h + 'px'});
+  edShape.hidden = false;
+}
+edDraw.addEventListener('pointerdown', e => {
+  if (e.button > 0 || !cur || !tool) return;
+  e.preventDefault();
+  if (tool === 'erase' && !cur.s.fx) return;
+  placeOverlays();
+  const r = edDraw.getBoundingClientRect(), vx = e.clientX - r.left, vy = e.clientY - r.top;
+  edDraw.setPointerCapture(e.pointerId);
+  if (tool === 'rect' || tool === 'ellipse') {
+    dr = {kind: tool, x0: vx, y0: vy, r};
+    edShape.classList.toggle('e', tool === 'ellipse');
+    showShape(dr, vx, vy, e.shiftKey);
+  } else {
+    const p = viewToSrc(vx, vy, r), st = {t: 'b', e: tool === 'erase' ? 1 : 0, r: Math.round(brushPx / 2 * (p.fx + p.fy) / 2 * 1e5) / 1e5, pts: [[p.x, p.y]]};
+    cur.s = {...cur.s, fx: [...(cur.s.fx || []), st]};
+    dr = {kind: 'brush', stroke: st, r, lx: vx, ly: vy};
+    edRepaint(); cardSoon(cur);
+  }
+});
+edDraw.addEventListener('pointermove', e => {
+  moveBrushCur(e);
+  if (!dr) return;
+  const vx = e.clientX - dr.r.left, vy = e.clientY - dr.r.top;
+  if (dr.kind !== 'brush') { showShape(dr, vx, vy, e.shiftKey); return; }
+  if (Math.hypot(vx - dr.lx, vy - dr.ly) < 2) return;
+  dr.lx = vx; dr.ly = vy;
+  const p = viewToSrc(vx, vy, dr.r);
+  dr.stroke.pts.push([p.x, p.y]);
+  edRepaint(); cardSoon(cur);
+});
+function drawEnd(e, commit) {
+  if (!dr) return;
+  const d = dr;
+  dr = null;
+  if (d.kind === 'brush') { edSync(); refreshUI(); return; }
+  edShape.hidden = true;
+  if (!commit || !cur) return;
+  const b = shapeRect(d, e.clientX - d.r.left, e.clientY - d.r.top, e.shiftKey);
+  if (b.w < 6 || b.h < 6) return;
+  const c = viewToSrc(b.l + b.w / 2, b.t + b.h / 2, d.r), s = cur.s, r4 = v => Math.round(v * 1e4) / 1e4;
+  const a = s.flipH !== s.flipV ? c.th : -c.th;   // 화면에서 그린 그대로(반듯하게) 보이게 반대로 돌려 둠
+  edApi.set({fx: [...(s.fx || []), {t: d.kind === 'ellipse' ? 'e' : 'r', x: c.x, y: c.y, w: r4(b.w * c.fx), h: r4(b.h * c.fy), a: r4(a)}]});
+}
+edDraw.addEventListener('pointerup', e => drawEnd(e, true));
+edDraw.addEventListener('pointercancel', e => drawEnd(e, false));
+edDraw.addEventListener('lostpointercapture', e => drawEnd(e, false));
+edDraw.addEventListener('pointerleave', () => { if (!dr) edBrush.hidden = true; });
+edDraw.addEventListener('wheel', e => {   // 붓·지우개일 때 휠 = 붓 크기
+  if (tool !== 'brush' && tool !== 'erase') return;
+  e.preventDefault();
+  edApi.setBrush(brushPx - e.deltaY * 0.1);
+  moveBrushCur(e);
+}, {passive: false});
+
 edReset.onclick = () => { cur.s = {...DEF, flipH: G.flipH}; cur.flipOwn = false; edSync(); cardSoon(cur); edRepaint(); refreshUI(); };
 edToneAll.onclick = () => {
   const tone = {}; SLIDERS.forEach(o => { tone[o.k] = cur.s[o.k]; });
@@ -1043,7 +1312,7 @@ function outName(name, mime) {
 }
 
 /* 저장용 처리(보정+반전+자르기+JPG 변환)는 백그라운드(워커)에서 여러 장 동시에 — 화면이 안 멈추고 훨씬 빠름. 안 되면 화면에서 처리 */
-const ENC_SRC = [mkCv, geom, cropBox, blurData, develop, paintGeom, render].map(String).join('\n')
+const ENC_SRC = [mkCv, geom, cropBox, blurData, toneStep, fxLayer, fxMask, composeFx, develop, paintGeom, render].map(String).join('\n')
   + '\nonmessage=async e=>{const d=e.data;try{const c=new OffscreenCanvas(1,1);render(c,d.bmp,d.bmp.width,d.bmp.height,d.s,d.bg);d.bmp.close();'
   + 'postMessage({id:d.id,b:await c.convertToBlob({type:d.type,quality:d.q})})}catch(err){postMessage({id:d.id,err:String(err)})}}';
 let workers = null, workerBroken = false, encSeq = 0;
